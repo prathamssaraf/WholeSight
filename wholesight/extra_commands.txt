@@ -1,0 +1,2 @@
+command to get folder structure
+Get-ChildItem -Path .\lib -Recurse -Depth 4 | Format-Table FullName

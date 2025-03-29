@@ -1,0 +1,36 @@
+{
+  "name": "Flutter Development",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installMaven": false,
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dart-code.dart-code",
+        "dart-code.flutter",
+        "pkief.material-icon-theme"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "dart.flutterSdkPath": "/home/vscode/flutter/flutter"
+      }
+    }
+  },
+  "postCreateCommand": "bash ./.devcontainer/setup-flutter.sh",
+  "forwardPorts": [3000],
+  "remoteUser": "vscode",
+  "onCreateCommand": "mkdir -p ./.devcontainer && cp /tmp/setup-flutter.sh ./.devcontainer/ || true"
+}
