@@ -20,6 +20,7 @@ import 'package:whole_sight/presentation/bloc/food_logging/food_logging_event.da
 import 'package:whole_sight/presentation/bloc/food_logging/food_logging_state.dart';
 import 'package:whole_sight/data/models/meal.dart';
 import 'package:whole_sight/presentation/pages/food_logging/image_recognition_page.dart';
+import 'package:whole_sight/presentation/pages/food_logging/barcode_scan_page.dart';
 import 'package:whole_sight/services/auth/auth_service.dart';
 import 'package:whole_sight/services/nutrition/usda_food_service.dart';
 
@@ -84,6 +85,32 @@ class FoodLogUtils {
       default:
         return 'Meal';
     }
+  }
+
+  static String formatNutritionValue(dynamic value) {
+    if (value == null) return '0.0';
+    if (value is int) return value.toString();
+    if (value is double) {
+      // Show whole numbers without decimal if it's a whole number
+      if (value == value.truncateToDouble()) {
+        return value.toInt().toString();
+      }
+      return value.toStringAsFixed(1);
+    }
+    return value.toString();
+  }
+
+  static String formatServingQuantity(dynamic value) {
+    if (value == null) return '0';
+    if (value is int) return value.toString();
+    if (value is double) {
+      // Show whole numbers without decimal if it's a whole number
+      if (value == value.truncateToDouble()) {
+        return value.toInt().toString();
+      }
+      return value.toStringAsFixed(1);
+    }
+    return value.toString();
   }
 }
 
@@ -447,6 +474,48 @@ class _FoodLogPageState extends State<FoodLogPage> {
     );
   }
 
+  String _formatQuantityForDisplay(String quantity) {
+    // Handle cases where quantity might have floating-point precision issues
+    // e.g., "0.300000000000000041serving" -> "0.3 serving"
+    
+    if (quantity.isEmpty) return quantity;
+    
+    // First, try to extract number and unit using regex
+    // This handles cases like "0.300000000000000041serving" where there's no space
+    final regex = RegExp(r'^([0-9]*\.?[0-9]+)(.*)$');
+    final match = regex.firstMatch(quantity);
+    
+    if (match != null) {
+      final numberPart = match.group(1)!;
+      final unitPart = match.group(2)!.trim();
+      
+      try {
+        final number = double.parse(numberPart);
+        final formattedNumber = FoodLogUtils.formatServingQuantity(number);
+        return unitPart.isNotEmpty ? '$formattedNumber $unitPart' : formattedNumber;
+      } catch (e) {
+        // If parsing fails, return the original quantity
+        return quantity;
+      }
+    }
+    
+    // Fallback to original logic for space-separated format
+    final parts = quantity.split(' ');
+    if (parts.isEmpty) return quantity;
+    
+    final numberPart = parts[0];
+    final unitPart = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    
+    try {
+      final number = double.parse(numberPart);
+      final formattedNumber = FoodLogUtils.formatServingQuantity(number);
+      return unitPart.isNotEmpty ? '$formattedNumber $unitPart' : formattedNumber;
+    } catch (e) {
+      // If parsing fails, return the original quantity
+      return quantity;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<FoodLoggingBloc, FoodLoggingState>(
@@ -770,7 +839,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
                         style: AppTextStyles.body1,
                       ),
                       subtitle: Text(
-                        food['quantity'] as String,
+                        _formatQuantityForDisplay(food['quantity'] as String),
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textMedium,
                         ),
@@ -1483,6 +1552,19 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
     super.dispose();
   }
 
+  void _navigateToBarcodeScan(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BarcodeScanPage(
+          mealId: widget.mealId,
+          mealType: widget.mealType,
+          selectedDate: widget.date,
+        ),
+      ),
+    );
+  }
+
   Future<void> _scanBarcode(BuildContext context) async {
     try {
       // Start barcode scanning
@@ -1581,15 +1663,15 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildNutrientInfo('Calories', '${food['calories'].toInt()}'),
-                _buildNutrientInfo('Protein', '${food['protein']}g'),
+                _buildNutrientInfo('Protein', '${FoodLogUtils.formatNutritionValue(food['protein'])}g'),
               ],
             ),
             SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNutrientInfo('Carbs', '${food['carbs']}g'),
-                _buildNutrientInfo('Fat', '${food['fat']}g'),
+                _buildNutrientInfo('Carbs', '${FoodLogUtils.formatNutritionValue(food['carbs'])}g'),
+                _buildNutrientInfo('Fat', '${FoodLogUtils.formatNutritionValue(food['fat'])}g'),
               ],
             ),
           ],
@@ -1989,13 +2071,13 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
                             'Cal', '${food['calories']}', AppColors.primary),
                         SizedBox(width: 16),
                         _buildNutrientBadge(
-                            'C', '${food['carbs']}g', AppColors.carbs),
+                            'C', '${FoodLogUtils.formatNutritionValue(food['carbs'])}g', AppColors.carbs),
                         SizedBox(width: 16),
                         _buildNutrientBadge(
-                            'P', '${food['protein']}g', AppColors.protein),
+                            'P', '${FoodLogUtils.formatNutritionValue(food['protein'])}g', AppColors.protein),
                         SizedBox(width: 16),
                         _buildNutrientBadge(
-                            'F', '${food['fat']}g', AppColors.fats),
+                            'F', '${FoodLogUtils.formatNutritionValue(food['fat'])}g', AppColors.fats),
                       ],
                     ),
                   ),
@@ -2132,7 +2214,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
-            onPressed: () => _scanBarcode(context),
+            onPressed: () => _navigateToBarcodeScan(context),
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Scan Barcode'),
             style: ElevatedButton.styleFrom(

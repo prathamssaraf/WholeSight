@@ -148,3 +148,25 @@ class DeleteMealEvent extends FoodLoggingEvent {
   @override
   List<Object> get props => [mealId, userId, date];
 }
+
+// Barcode scanning event with portion customization
+class ScanBarcodeEvent extends FoodLoggingEvent {
+  final String barcode;
+  final double servings;
+  final String servingUnit;
+  final String mealId;
+  final String userId;
+  final DateTime date;
+
+  const ScanBarcodeEvent({
+    required this.barcode,
+    required this.servings,
+    required this.servingUnit,
+    required this.mealId,
+    required this.userId,
+    required this.date,
+  });
+
+  @override
+  List<Object> get props => [barcode, servings, servingUnit, mealId, userId, date];
+}

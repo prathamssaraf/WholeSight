@@ -11,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:whole_sight/services/ai/image_recognition_service.dart';
 import 'package:whole_sight/data/models/meal.dart';
+import 'package:whole_sight/presentation/pages/food_logging/food_log_page.dart';
 
 class ImageRecognitionPage extends StatefulWidget {
   final String userId;
@@ -128,7 +129,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
     // Convert the rich FoodEntity model to the simpler FoodItem model
     final foodItem = FoodItem(
       name: food.name,
-      quantity: '${food.servingSize} ${food.servingUnit}',
+      quantity: '${FoodLogUtils.formatServingQuantity(food.servingSize)} ${food.servingUnit}',
       calories: food.calories.toInt(),
       protein: food.protein,
       carbs: food.carbs,

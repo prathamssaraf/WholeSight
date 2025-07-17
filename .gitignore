@@ -41,3 +41,78 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# API Keys and sensitive data
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+**/local.properties
+**/.env
+
+# Build directories
+build/
+**/build/
+
+# Generated files
+**/*.g.dart
+**/*.freezed.dart
+**/*.mocks.dart
+
+# Coverage
+coverage/
+
+# Exceptions to above rules
+!**/packages/*/build/
+!**/packages/*/lib/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Generated plugin registrant
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.h
+**/GeneratedPluginRegistrant.m
+**/GeneratedPluginRegistrant.swift
+
+# Firebase
+.firebase/
+.flutterfire/
+
+# Additional sensitive files
+**/secrets/
+**/api_keys/
+**/credentials/

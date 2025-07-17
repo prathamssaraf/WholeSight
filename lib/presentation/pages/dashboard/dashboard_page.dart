@@ -15,6 +15,8 @@ import 'package:whole_sight/domain/entities/user_entity.dart';
 import 'package:whole_sight/services/nutrition/meal_service.dart'; // Added for nutrition summary
 import 'package:whole_sight/presentation/bloc/analysis/nutrition_analysis_bloc.dart';
 import 'package:whole_sight/presentation/pages/dashboard/comprehensive_analysis_page.dart';
+import 'package:whole_sight/presentation/bloc/food_logging/food_logging_bloc.dart';
+import 'package:whole_sight/presentation/bloc/food_logging/food_logging_state.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -315,14 +317,29 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ],
       ),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthAuthenticated) {
-            // User authenticated - reload data
-            _loadUserData();
-            _loadNutritionSummary();
-          }
-        },
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthAuthenticated) {
+                // User authenticated - reload data
+                _loadUserData();
+                _loadNutritionSummary();
+              }
+            },
+          ),
+          BlocListener<FoodLoggingBloc, FoodLoggingState>(
+            listener: (context, state) {
+              // Listen for food logging changes and update dashboard
+              if (state is FoodItemAdded || 
+                  state is FoodItemDeleted || 
+                  state is MealDeleted ||
+                  state is MealsLoaded) {
+                _loadNutritionSummary();
+              }
+            },
+          ),
+        ],
         child: _isLoading
             ? _buildLoadingShimmer()
             : Column(
