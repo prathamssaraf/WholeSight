@@ -22,6 +22,7 @@ class _InsightsPageState extends State<InsightsPage>
   UserEntity? _user;
   bool _isLoading = true;
   List<Meal> _recentMeals = []; // Changed to Meal type
+  DateTime _selectedDate = DateTime.now(); // Add date selector functionality
 
   // Summary data
   int _calorieConsumed = 0;
@@ -144,11 +145,10 @@ class _InsightsPageState extends State<InsightsPage>
     if (_user == null) return;
 
     try {
-      final today = DateTime.now();
       final mealService = getIt<MealService>();
 
-      // Get today's meals
-      final meals = await mealService.getMealsByUserAndDate(_user!.id, today);
+      // Get meals for the selected date
+      final meals = await mealService.getMealsByUserAndDate(_user!.id, _selectedDate);
 
       // Calculate total nutrients from meals
       double totalCalories = 0;
@@ -297,6 +297,9 @@ class _InsightsPageState extends State<InsightsPage>
                   ),
                 ),
               ),
+
+            // Date selector
+            _buildDateSelector(),
 
             // Summary card
             _buildSummaryCard(),
@@ -1494,6 +1497,72 @@ class _InsightsPageState extends State<InsightsPage>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Date selector methods (similar to food log page)
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _loadUserData(); // Reload data for the new date
+    }
+  }
+
+  Widget _buildDateSelector() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () {
+              setState(() {
+                _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+              });
+              _loadUserData(); // Load data for the new date
+            },
+          ),
+          InkWell(
+            onTap: () => _selectDate(context),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    FoodLogUtils.formatDate(_selectedDate),
+                    style: AppTextStyles.subtitle1.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.calendar_today, size: 16),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: DateTime.now().difference(_selectedDate).inDays <= 0
+                ? null
+                : () {
+                    setState(() {
+                      _selectedDate = _selectedDate.add(const Duration(days: 1));
+                    });
+                    _loadUserData(); // Load data for the new date
+                  },
+          ),
+        ],
       ),
     );
   }
