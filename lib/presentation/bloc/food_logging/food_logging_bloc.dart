@@ -31,6 +31,7 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
   }) : super(FoodLoggingInitial()) {
     on<SearchFoodsEvent>(_onSearchFoods);
     on<RecognizeFoodFromImageEvent>(_onRecognizeFoodFromImage);
+    on<RecognizeFoodFromMultipleImagesEvent>(_onRecognizeFoodFromMultipleImages);
     on<LogFoodEvent>(_onLogFood);
     on<AddCustomFoodEvent>(_onAddCustomFood);
     on<LoadMealsForDateEvent>(_onLoadMealsForDate);
@@ -38,6 +39,7 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
     on<AddFoodToMealEvent>(_onAddFoodToMeal);
     on<DeleteMealEvent>(_onDeleteMeal);
     on<DeleteFoodFromMealEvent>(_onDeleteFoodFromMeal);
+    on<UpdateFoodInMealEvent>(_onUpdateFoodInMeal);
     on<ScanBarcodeEvent>(_onScanBarcode);
   }
 
@@ -79,6 +81,30 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
     } catch (e) {
       emit(FoodLoggingError(
           message: 'Failed to recognize food: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRecognizeFoodFromMultipleImages(
+    RecognizeFoodFromMultipleImagesEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+
+    try {
+      // Convert List<List<int>> to List<Uint8List>
+      final List<Uint8List> uint8Lists = event.multipleImageBytes
+          .map((imageBytes) => Uint8List.fromList(imageBytes))
+          .toList();
+
+      final recognizedFoods =
+          await imageRecognitionService.recognizeFoodFromMultipleImageBytes(
+        uint8Lists,
+      );
+
+      emit(FoodRecognitionSuccess(recognizedFoods: recognizedFoods));
+    } catch (e) {
+      emit(FoodLoggingError(
+          message: 'Failed to recognize food from multiple images: ${e.toString()}'));
     }
   }
 
@@ -252,6 +278,34 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
     } catch (e) {
       emit(FoodLoggingError(
           message: 'Failed to remove food from meal: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onUpdateFoodInMeal(
+    UpdateFoodInMealEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+    try {
+      final result = await foodRepository.updateFoodInMeal(
+        event.mealId,
+        event.foodId,
+        event.updatedFoodItem,
+      );
+
+      result.fold(
+        (failure) => emit(FoodLoggingError(message: failure.toString())),
+        (_) {
+          // Emit the FoodItemUpdated state first
+          emit(FoodItemUpdated(mealId: event.mealId, foodId: event.foodId));
+
+          // Then reload meals to show updated data
+          add(LoadMealsForDateEvent(date: event.date, userId: event.userId));
+        },
+      );
+    } catch (e) {
+      emit(FoodLoggingError(
+          message: 'Failed to update food in meal: ${e.toString()}'));
     }
   }
 

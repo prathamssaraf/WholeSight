@@ -38,6 +38,17 @@ class RecognizeFoodFromImageEvent extends FoodLoggingEvent {
   List<Object?> get props => [imageBytes];
 }
 
+class RecognizeFoodFromMultipleImagesEvent extends FoodLoggingEvent {
+  final List<List<int>> multipleImageBytes;
+
+  const RecognizeFoodFromMultipleImagesEvent({
+    required this.multipleImageBytes,
+  });
+
+  @override
+  List<Object?> get props => [multipleImageBytes];
+}
+
 class LogFoodEvent extends FoodLoggingEvent {
   final String userId;
   final FoodEntity food;
@@ -113,6 +124,26 @@ class AddFoodToMealEvent extends FoodLoggingEvent {
 
   @override
   List<Object?> get props => [mealId, foodItem, userId, date];
+}
+
+// Event to update a food item in a meal
+class UpdateFoodInMealEvent extends FoodLoggingEvent {
+  final String mealId;
+  final String foodId;
+  final FoodItem updatedFoodItem;
+  final String userId;
+  final DateTime date;
+
+  UpdateFoodInMealEvent({
+    required this.mealId,
+    required this.foodId,
+    required this.updatedFoodItem,
+    required this.userId,
+    required this.date,
+  });
+
+  @override
+  List<Object> get props => [mealId, foodId, updatedFoodItem, userId, date];
 }
 
 // Event to delete a food item from a meal

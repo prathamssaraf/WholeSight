@@ -7,6 +7,10 @@ abstract class GeminiService {
     required String prompt,
     required DataPart image,
   });
+  Future<String> generateContentWithMultipleImages({
+    required String prompt,
+    required List<DataPart> images,
+  });
   Future<List<String>> generateContentStream({required String prompt});
 }
 
@@ -67,6 +71,37 @@ class GeminiServiceImpl implements GeminiService {
     } catch (e, stackTrace) {
       AppLogger.error('Failed to generate content with image', e, stackTrace);
       throw Exception('Failed to generate content with image: $e');
+    }
+  }
+  
+  @override
+  Future<String> generateContentWithMultipleImages({
+    required String prompt,
+    required List<DataPart> images,
+  }) async {
+    try {
+      // Create content with text prompt and all images
+      List<Part> parts = [TextPart(prompt)];
+      parts.addAll(images);
+      
+      final content = [Content.multi(parts)];
+      
+      final response = await _model.generateContent(content);
+      
+      if (response.candidates.isEmpty || 
+          response.candidates.first.content.parts.isEmpty) {
+        throw Exception('Empty response from Gemini');
+      }
+      
+      final text = response.candidates.first.content.parts
+          .whereType<TextPart>()
+          .map((part) => part.text)
+          .join('\n');
+      
+      return text;
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to generate content with multiple images', e, stackTrace);
+      throw Exception('Failed to generate content with multiple images: $e');
     }
   }
   

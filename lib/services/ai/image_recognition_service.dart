@@ -12,6 +12,8 @@ import 'dart:math';
 abstract class ImageRecognitionService {
   Future<List<FoodEntity>> recognizeFoodFromImage(File imageFile);
   Future<List<FoodEntity>> recognizeFoodFromBytes(Uint8List imageBytes);
+  Future<List<FoodEntity>> recognizeFoodFromMultipleImages(List<File> imageFiles);
+  Future<List<FoodEntity>> recognizeFoodFromMultipleImageBytes(List<Uint8List> multipleImageBytes);
   Future<Map<String, dynamic>> estimatePortionSizes(File imageFile);
 }
 
@@ -387,5 +389,239 @@ Only include the JSON object in your response, with no additional text.
         createdAt: now,
       );
     }).toList();
+  }
+
+  @override
+  Future<List<FoodEntity>> recognizeFoodFromMultipleImages(List<File> imageFiles) async {
+    try {
+      // Convert all image files to bytes
+      List<Uint8List> imageBytesList = [];
+      for (File imageFile in imageFiles) {
+        final imageBytes = await imageFile.readAsBytes();
+        imageBytesList.add(imageBytes);
+      }
+      
+      return recognizeFoodFromMultipleImageBytes(imageBytesList);
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to recognize food from multiple images', e, stackTrace);
+      throw Exception('Failed to recognize food from multiple images: $e');
+    }
+  }
+
+  @override
+  Future<List<FoodEntity>> recognizeFoodFromMultipleImageBytes(List<Uint8List> multipleImageBytes) async {
+    try {
+      if (multipleImageBytes.isEmpty) {
+        throw Exception('No images provided');
+      }
+
+      // Limit to maximum 3 images
+      final imagesToProcess = multipleImageBytes.take(3).toList();
+      
+      // Create enhanced prompt for multiple images
+      final prompt = '''
+Analyze these ${imagesToProcess.length} images and identify all food and drink items present across all images.
+For each item, provide the following details:
+1. Item name
+2. Brief description of the item
+3. Estimated portion size (in grams or milliliters)
+4. Serving unit (g, ml, oz, cup, etc.)
+5. Estimated calories
+6. Macronutrients (protein, carbs, fat, fiber, sugar) in grams
+7. Category (e.g., fruit, vegetable, protein, grain, dairy, beverage)
+8. Allergens (if applicable)
+9. Which image the food appears in (1, 2, or 3)
+
+If the same food appears in multiple images, only include it once but note all images it appears in.
+Combine nutrition information from all angles/views when the same food is shown multiple times.
+
+Format your response as a JSON array with the following structure:
+[
+  {
+    "name": "item name",
+    "description": "brief description",
+    "servingSize": numeric portion size (no units),
+    "servingUnit": "g" or "ml" or appropriate unit,
+    "calories": estimated calories per serving,
+    "macronutrients": {
+      "protein": estimated protein in grams,
+      "carbs": estimated carbs in grams,
+      "fat": estimated fat in grams,
+      "fiber": estimated fiber in grams,
+      "sugar": estimated sugar in grams
+    },
+    "allergens": ["allergen1", "allergen2", ...],
+    "categories": ["category1", "category2", ...],
+    "appearsInImages": [1, 2, 3]
+  },
+  ...
+]
+
+Only include the JSON array in your response, with no additional text.
+''';
+
+      // Create image parts for all images
+      List<DataPart> imageParts = [];
+      for (int i = 0; i < imagesToProcess.length; i++) {
+        imageParts.add(DataPart('image/jpeg', imagesToProcess[i]));
+      }
+
+      // Query Gemini with all images and prompt
+      final response = await _geminiService.generateContentWithMultipleImages(
+        prompt: prompt,
+        images: imageParts,
+      );
+
+      // Parse the JSON response
+      final jsonResponse = _parseGeminiJsonResponse(response);
+      List<dynamic> foodItems;
+
+      try {
+        foodItems = json.decode(jsonResponse) as List<dynamic>;
+      } catch (e) {
+        AppLogger.error('Failed to parse Gemini response as JSON for multiple images', e);
+        // Fallback to analyzing each image individually and combining results
+        return _analyzeImagesIndividually(imagesToProcess);
+      }
+
+      // Convert the identified items to FoodEntity objects
+      List<FoodEntity> recognizedFoods = [];
+      final now = DateTime.now();
+
+      for (final item in foodItems) {
+        try {
+          final String foodName = item['name'] ?? 'Unknown Food';
+          final String description = item['description'] ?? '';
+
+          // Parse serving details
+          final double servingSize = (item['servingSize'] is num)
+              ? (item['servingSize'] as num).toDouble()
+              : 100.0;
+
+          final String servingUnit = item['servingUnit'] ?? 'g';
+
+          // Parse calories
+          final double calories = (item['calories'] is num)
+              ? (item['calories'] as num).toDouble()
+              : 0.0;
+
+          // Parse macronutrients
+          final macroMap = Map<String, double>.from({
+            'protein': 0.0,
+            'carbs': 0.0,
+            'fat': 0.0,
+            'fiber': 0.0,
+            'sugar': 0.0,
+          });
+
+          if (item['macronutrients'] is Map) {
+            final macros = item['macronutrients'] as Map;
+            for (final key in macroMap.keys) {
+              if (macros[key] is num) {
+                macroMap[key] = (macros[key] as num).toDouble();
+              }
+            }
+          }
+
+          // Parse allergens
+          List<String> allergens = [];
+          if (item['allergens'] is List) {
+            allergens = List<String>.from(
+                (item['allergens'] as List).map((e) => e.toString()));
+          }
+
+          // Parse categories
+          List<String> categories = [];
+          if (item['categories'] is List) {
+            categories = List<String>.from(
+                (item['categories'] as List).map((e) => e.toString()));
+          }
+
+          // Parse which images the food appears in
+          String imageInfo = '';
+          if (item['appearsInImages'] is List) {
+            final imageNumbers = List<int>.from(
+                (item['appearsInImages'] as List).map((e) => e is num ? e.toInt() : 1));
+            imageInfo = ' (appears in image${imageNumbers.length > 1 ? 's' : ''} ${imageNumbers.join(', ')})';
+          }
+
+          // Create the FoodEntity object with enhanced description
+          final foodEntity = FoodEntity(
+            id: 'ai-multi-${DateTime.now().millisecondsSinceEpoch}-${recognizedFoods.length}',
+            name: foodName,
+            description: description + imageInfo,
+            servingSize: servingSize,
+            servingUnit: servingUnit,
+            calories: calories,
+            macronutrients: macroMap,
+            micronutrients: {},
+            allergens: allergens,
+            categories: categories,
+            barcode: null,
+            brand: null,
+            imageUrl: null,
+            isVerified: false,
+            isUserCreated: true,
+            userId: null,
+            createdAt: now,
+            updatedAt: null,
+          );
+
+          recognizedFoods.add(foodEntity);
+        } catch (e) {
+          AppLogger.error('Error creating FoodEntity from multi-image item: $item', e);
+        }
+      }
+
+      // If no foods were recognized, try individual analysis
+      if (recognizedFoods.isEmpty) {
+        return _analyzeImagesIndividually(imagesToProcess);
+      }
+
+      return recognizedFoods;
+    } catch (e, stackTrace) {
+      AppLogger.error('Failed to recognize food from multiple image bytes', e, stackTrace);
+      // Fallback to individual image analysis
+      return _analyzeImagesIndividually(multipleImageBytes);
+    }
+  }
+
+  // Helper method to analyze images individually as fallback
+  Future<List<FoodEntity>> _analyzeImagesIndividually(List<Uint8List> imageBytesList) async {
+    List<FoodEntity> allRecognizedFoods = [];
+    
+    for (int i = 0; i < imageBytesList.length; i++) {
+      try {
+        final foods = await recognizeFoodFromBytes(imageBytesList[i]);
+        // Add image indicator to food names to help user identify source
+        for (final food in foods) {
+          final updatedFood = FoodEntity(
+            id: '${food.id}-img${i + 1}',
+            name: '${food.name} (Image ${i + 1})',
+            description: food.description,
+            servingSize: food.servingSize,
+            servingUnit: food.servingUnit,
+            calories: food.calories,
+            macronutrients: food.macronutrients,
+            micronutrients: food.micronutrients,
+            allergens: food.allergens,
+            categories: food.categories,
+            barcode: food.barcode,
+            brand: food.brand,
+            imageUrl: food.imageUrl,
+            isVerified: food.isVerified,
+            isUserCreated: food.isUserCreated,
+            userId: food.userId,
+            createdAt: food.createdAt,
+            updatedAt: food.updatedAt,
+          );
+          allRecognizedFoods.add(updatedFood);
+        }
+      } catch (e) {
+        AppLogger.error('Failed to analyze individual image ${i + 1}', e);
+      }
+    }
+    
+    return allRecognizedFoods.isNotEmpty ? allRecognizedFoods : _generateFallbackFoodEntities();
   }
 }

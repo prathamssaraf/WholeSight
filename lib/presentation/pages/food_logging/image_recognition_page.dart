@@ -36,10 +36,11 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
   final ImageRecognitionService _imageRecognitionService =
       ImageRecognitionServiceImpl();
 
-  File? _selectedImage;
+  List<File> _selectedImages = [];
   bool _isAnalyzing = false;
   List<FoodEntity>? _recognizedFoods;
   String _errorMessage = '';
+  static const int _maxImages = 3;
 
   @override
   void initState() {
@@ -56,6 +57,16 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
   }
 
   Future<void> _takePhoto() async {
+    if (_selectedImages.length >= _maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Maximum $_maxImages images allowed'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
@@ -65,7 +76,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
 
       if (photo != null) {
         setState(() {
-          _selectedImage = File(photo.path);
+          _selectedImages.add(File(photo.path));
           _recognizedFoods = null;
           _errorMessage = '';
         });
@@ -78,6 +89,16 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
   }
 
   Future<void> _pickFromGallery() async {
+    if (_selectedImages.length >= _maxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Maximum $_maxImages images allowed'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -87,7 +108,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
 
       if (image != null) {
         setState(() {
-          _selectedImage = File(image.path);
+          _selectedImages.add(File(image.path));
           _recognizedFoods = null;
           _errorMessage = '';
         });
@@ -99,8 +120,8 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
     }
   }
 
-  Future<void> _analyzeImage() async {
-    if (_selectedImage == null) return;
+  Future<void> _analyzeImages() async {
+    if (_selectedImages.isEmpty) return;
 
     setState(() {
       _isAnalyzing = true;
@@ -109,9 +130,17 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
     });
 
     try {
-      // Using the existing ImageRecognitionService
-      final results = await _imageRecognitionService
-          .recognizeFoodFromImage(_selectedImage!);
+      List<FoodEntity> results;
+      
+      if (_selectedImages.length == 1) {
+        // Use single image analysis for better performance
+        results = await _imageRecognitionService
+            .recognizeFoodFromImage(_selectedImages.first);
+      } else {
+        // Use multiple image analysis
+        results = await _imageRecognitionService
+            .recognizeFoodFromMultipleImages(_selectedImages);
+      }
 
       setState(() {
         _isAnalyzing = false;
@@ -120,9 +149,25 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
-        _errorMessage = 'Failed to analyze image: $e';
+        _errorMessage = 'Failed to analyze image${_selectedImages.length > 1 ? 's' : ''}: $e';
       });
     }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+      _recognizedFoods = null;
+      _errorMessage = '';
+    });
+  }
+
+  void _clearAllImages() {
+    setState(() {
+      _selectedImages.clear();
+      _recognizedFoods = null;
+      _errorMessage = '';
+    });
   }
 
   void _addFoodToMeal(FoodEntity food) {
@@ -175,13 +220,15 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
               const SizedBox(height: 24),
 
               // Image analysis options
-              if (_selectedImage != null &&
+              if (_selectedImages.isNotEmpty &&
                   !_isAnalyzing &&
                   _recognizedFoods == null)
                 ElevatedButton.icon(
-                  onPressed: _analyzeImage,
+                  onPressed: _analyzeImages,
                   icon: const Icon(Icons.search),
-                  label: const Text('Analyze Food'),
+                  label: Text(_selectedImages.length == 1 
+                      ? 'Analyze Food' 
+                      : 'Analyze ${_selectedImages.length} Images'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     backgroundColor: AppColors.primary,
@@ -248,25 +295,31 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Food Image',
-              style: AppTextStyles.subtitle1.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Food Images (${_selectedImages.length}/$_maxImages)',
+                  style: AppTextStyles.subtitle1.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_selectedImages.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: _clearAllImages,
+                    icon: const Icon(Icons.clear_all, size: 18),
+                    label: const Text('Clear All'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
 
-            // Image preview or placeholder
-            if (_selectedImage != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  _selectedImage!,
-                  height: 250,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              )
+            // Image grid or placeholder
+            if (_selectedImages.isNotEmpty)
+              _buildImageGrid()
             else
               Container(
                 height: 200,
@@ -286,8 +339,15 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No image selected',
+                      'No images selected',
                       style: AppTextStyles.body1.copyWith(
+                        color: AppColors.textMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add up to $_maxImages images for better analysis',
+                      style: AppTextStyles.body2.copyWith(
                         color: AppColors.textMedium,
                       ),
                     ),
@@ -303,7 +363,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _takePhoto,
+                    onPressed: _selectedImages.length >= _maxImages ? null : _takePhoto,
                     icon: const Icon(Icons.camera_alt),
                     label: const Text('Camera'),
                     style: OutlinedButton.styleFrom(
@@ -314,7 +374,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _pickFromGallery,
+                    onPressed: _selectedImages.length >= _maxImages ? null : _pickFromGallery,
                     icon: const Icon(Icons.photo_library),
                     label: const Text('Gallery'),
                     style: OutlinedButton.styleFrom(
@@ -327,6 +387,74 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImageGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.2,
+      ),
+      itemCount: _selectedImages.length,
+      itemBuilder: (context, index) {
+        return Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _selectedImages[index],
+                height: double.infinity,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () => _removeImage(index),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Image ${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -379,7 +507,7 @@ class _ImageRecognitionPageState extends State<ImageRecognitionPage> {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: _analyzeImage,
+                  onPressed: _analyzeImages,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                 ),
