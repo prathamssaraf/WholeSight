@@ -53,7 +53,7 @@ class AuthServiceImpl implements AuthService {
   Stream<UserEntity?> get authStateChanges {
     return _firebaseAuth.authStateChanges().asyncMap((firebaseUser) async {
       if (firebaseUser == null) {
-        print('AuthService: User signed out or not authenticated');
+        AppLogger.info('AuthService: User signed out or not authenticated');
         return null;
       }
 
@@ -94,7 +94,7 @@ class AuthServiceImpl implements AuthService {
     // Add a short delay to give Firebase Auth time to restore session
     await Future.delayed(Duration(milliseconds: 500));
     final user = _firebaseAuth.currentUser;
-    print('AuthService: isAuthenticated check: ${user != null}');
+    AppLogger.debug('AuthService: isAuthenticated check: ${user != null}');
     return user != null;
   }
 

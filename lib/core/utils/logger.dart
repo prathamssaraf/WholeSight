@@ -13,14 +13,14 @@ class AppLogger {
         lineLength: 120,
         colors: true,
         printEmojis: true,
-        printTime: true,
+        dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
       ),
-      level: kDebugMode ? Level.verbose : Level.info,
+      level: kDebugMode ? Level.trace : Level.info,
     );
   }
   
-  static void verbose(String message) {
-    _logger.v(message);
+  static void trace(String message) {
+    _logger.t(message);
   }
   
   static void debug(String message) {
@@ -49,8 +49,8 @@ class AppLogger {
     }
   }
   
-  static void wtf(String message, [dynamic error, StackTrace? stackTrace]) {
-    _logger.wtf(message, error: error, stackTrace: stackTrace);
+  static void fatal(String message, [dynamic error, StackTrace? stackTrace]) {
+    _logger.f(message, error: error, stackTrace: stackTrace);
     
     // Log to Crashlytics in non-debug mode
     if (!kDebugMode && error != null) {

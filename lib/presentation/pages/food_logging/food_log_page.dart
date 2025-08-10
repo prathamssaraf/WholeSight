@@ -959,6 +959,180 @@ class _FoodLogPageState extends State<FoodLogPage> {
     );
   }
 
+  void _showEditFoodDialog(Map<String, dynamic> food, String mealId, String foodId) {
+    // Controllers for editing
+    final nameController = TextEditingController(text: food['name'] as String);
+    final quantityController = TextEditingController(text: food['quantity'] as String);
+    final caloriesController = TextEditingController(text: food['calories'].toString());
+    final proteinController = TextEditingController(text: (food['protein'] ?? 0).toString());
+    final carbsController = TextEditingController(text: (food['carbs'] ?? 0).toString());
+    final fatController = TextEditingController(text: (food['fat'] ?? 0).toString());
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Edit Food Item'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Food Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  TextField(
+                    controller: quantityController,
+                    decoration: InputDecoration(
+                      labelText: 'Quantity',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  TextField(
+                    controller: caloriesController,
+                    decoration: InputDecoration(
+                      labelText: 'Calories',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Macronutrients (optional)',
+                    style: AppTextStyles.subtitle2.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: proteinController,
+                          decoration: InputDecoration(
+                            labelText: 'Protein',
+                            suffixText: 'g',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: carbsController,
+                          decoration: InputDecoration(
+                            labelText: 'Carbs',
+                            suffixText: 'g',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: fatController,
+                          decoration: InputDecoration(
+                            labelText: 'Fat',
+                            suffixText: 'g',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Validate required fields
+                if (nameController.text.isEmpty || 
+                    quantityController.text.isEmpty || 
+                    caloriesController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please fill in name, quantity, and calories'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                // Create updated food item
+                final updatedFood = FoodItem(
+                  name: nameController.text.trim(),
+                  quantity: quantityController.text.trim(),
+                  calories: int.tryParse(caloriesController.text) ?? 0,
+                  protein: double.tryParse(proteinController.text),
+                  carbs: double.tryParse(carbsController.text),
+                  fat: double.tryParse(fatController.text),
+                );
+
+                // Update the food item
+                context.read<FoodLoggingBloc>().add(
+                  UpdateFoodInMealEvent(
+                    mealId: mealId,
+                    foodId: foodId,
+                    updatedFoodItem: updatedFood,
+                    userId: _userId,
+                    date: _selectedDate,
+                  ),
+                );
+
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${updatedFood.name} updated'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              },
+              child: Text('Update'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      // Dispose controllers
+      nameController.dispose();
+      quantityController.dispose();
+      caloriesController.dispose();
+      proteinController.dispose();
+      carbsController.dispose();
+      fatController.dispose();
+    });
+  }
+
   void _showFoodItemOptions(BuildContext context, Map<String, dynamic> food,
       String mealId, String foodId) {
     final String foodName = food['name'] as String;
@@ -999,7 +1173,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
                   title: const Text('Edit Food Item'),
                   onTap: () {
                     Navigator.pop(context);
-                    // Add edit food logic here
+                    _showEditFoodDialog(food, mealId, foodId);
                   },
                 ),
                 ListTile(
@@ -1365,6 +1539,31 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
   final FoodDatabaseService _foodService = getIt<FoodDatabaseService>();
   bool _isSearching = false;
   Timer? _debounce;
+
+  // Custom food controllers
+  final _foodNameController = TextEditingController();
+  final _servingSizeController = TextEditingController();
+  final _caloriesController = TextEditingController();
+  final _proteinController = TextEditingController();
+  final _carbsController = TextEditingController();
+  final _fatController = TextEditingController();
+  final _fiberController = TextEditingController();
+  final _sugarController = TextEditingController();
+  String _selectedUnit = 'g';
+
+  // Category management
+  List<String> _foodCategories = [
+    'Fruits',
+    'Vegetables', 
+    'Protein',
+    'Dairy',
+    'Grains',
+    'Snacks',
+    'Beverages',
+    'Desserts',
+  ];
+  Set<String> _selectedCategories = {};
+  final _customCategoryController = TextEditingController();
 // Note: Keep your existing _searchResults list for now
 
   final List<Map<String, dynamic>> _inputMethods = [
@@ -1548,6 +1747,15 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
   @override
   void dispose() {
     _searchController.dispose();
+    _foodNameController.dispose();
+    _servingSizeController.dispose();
+    _caloriesController.dispose();
+    _proteinController.dispose();
+    _carbsController.dispose();
+    _fatController.dispose();
+    _fiberController.dispose();
+    _sugarController.dispose();
+    _customCategoryController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -2295,6 +2503,8 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
   }
 
   Widget _buildCustomContent() {
+    final mealName = FoodLogUtils.getMealTypeName(widget.mealType);
+    
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2309,6 +2519,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
 
           // Food name
           TextField(
+            controller: _foodNameController,
             decoration: InputDecoration(
               labelText: 'Food Name',
               hintText: 'e.g., Homemade Granola',
@@ -2326,6 +2537,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               Expanded(
                 flex: 2,
                 child: TextField(
+                  controller: _servingSizeController,
                   decoration: InputDecoration(
                     labelText: 'Serving Size',
                     hintText: 'e.g., 100',
@@ -2346,34 +2558,20 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  value: 'g',
+                  value: _selectedUnit,
                   items: const [
-                    DropdownMenuItem(
-                      value: 'g',
-                      child: Text('g'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'ml',
-                      child: Text('ml'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'oz',
-                      child: Text('oz'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'cup',
-                      child: Text('cup'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'tbsp',
-                      child: Text('tbsp'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'tsp',
-                      child: Text('tsp'),
-                    ),
+                    DropdownMenuItem(value: 'g', child: Text('g')),
+                    DropdownMenuItem(value: 'ml', child: Text('ml')),
+                    DropdownMenuItem(value: 'oz', child: Text('oz')),
+                    DropdownMenuItem(value: 'cup', child: Text('cup')),
+                    DropdownMenuItem(value: 'tbsp', child: Text('tbsp')),
+                    DropdownMenuItem(value: 'tsp', child: Text('tsp')),
                   ],
-                  onChanged: (value) {},
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedUnit = value!;
+                    });
+                  },
                 ),
               ),
             ],
@@ -2383,6 +2581,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
 
           // Calories
           TextField(
+            controller: _caloriesController,
             decoration: InputDecoration(
               labelText: 'Calories',
               hintText: 'per serving',
@@ -2409,6 +2608,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _proteinController,
                   decoration: InputDecoration(
                     labelText: 'Protein',
                     suffixText: 'g',
@@ -2422,6 +2622,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
+                  controller: _carbsController,
                   decoration: InputDecoration(
                     labelText: 'Carbs',
                     suffixText: 'g',
@@ -2435,6 +2636,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
+                  controller: _fatController,
                   decoration: InputDecoration(
                     labelText: 'Fat',
                     suffixText: 'g',
@@ -2455,6 +2657,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _fiberController,
                   decoration: InputDecoration(
                     labelText: 'Fiber',
                     suffixText: 'g',
@@ -2468,6 +2671,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
+                  controller: _sugarController,
                   decoration: InputDecoration(
                     labelText: 'Sugar',
                     suffixText: 'g',
@@ -2486,26 +2690,33 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
           const SizedBox(height: 24),
 
           // Food categories
-          Text(
-            'Categories',
-            style: AppTextStyles.subtitle1.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Categories',
+                style: AppTextStyles.subtitle1.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _showAddCategoryDialog,
+                icon: Icon(Icons.add, size: 16),
+                label: Text('Add Custom'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  textStyle: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _buildCategoryChip('Fruits', true),
-              _buildCategoryChip('Vegetables', false),
-              _buildCategoryChip('Protein', false),
-              _buildCategoryChip('Dairy', false),
-              _buildCategoryChip('Grains', false),
-              _buildCategoryChip('Snacks', false),
-              _buildCategoryChip('Beverages', false),
-              _buildCategoryChip('Desserts', false),
-            ],
+            children: _foodCategories.map((category) => 
+              _buildCategoryChip(category, _selectedCategories.contains(category))
+            ).toList(),
           ),
 
           const SizedBox(height: 32),
@@ -2515,14 +2726,35 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // Create a new food item and add it to the meal
+                // Validate required fields
+                if (_foodNameController.text.isEmpty || 
+                    _servingSizeController.text.isEmpty || 
+                    _caloriesController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please fill in food name, serving size, and calories'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                  return;
+                }
+
+                // Parse values with fallbacks
+                final servingSize = _servingSizeController.text;
+                final calories = double.tryParse(_caloriesController.text) ?? 0.0;
+                final protein = double.tryParse(_proteinController.text) ?? 0.0;
+                final carbs = double.tryParse(_carbsController.text) ?? 0.0;
+                final fat = double.tryParse(_fatController.text) ?? 0.0;
+
+                // Create a new food item with actual input values
                 final customFood = {
-                  'name': 'Custom Food', // In a real app, get from TextField
-                  'calories': 200.0, // In a real app, get from TextField
-                  'servingSize': '100g', // In a real app, get from fields
-                  'protein': 10.0, // In a real app, get from TextField
-                  'carbs': 20.0, // In a real app, get from TextField
-                  'fat': 15.0, // In a real app, get from TextField
+                  'name': _foodNameController.text.trim(),
+                  'calories': calories,
+                  'servingSize': '$servingSize $_selectedUnit',
+                  'protein': protein,
+                  'carbs': carbs,
+                  'fat': fat,
+                  'categories': _selectedCategories.toList(),
                 };
 
                 _addFoodToMeal(customFood);
@@ -2531,9 +2763,10 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                'Save Custom Food',
+                'Save & Add to $mealName',
                 style: AppTextStyles.button.copyWith(
                   color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -2543,25 +2776,97 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
     );
   }
 
+  void _showAddCategoryDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Add Custom Category'),
+          content: TextField(
+            controller: _customCategoryController,
+            decoration: InputDecoration(
+              hintText: 'Enter category name',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            textCapitalization: TextCapitalization.words,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _customCategoryController.clear();
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final categoryName = _customCategoryController.text.trim();
+                if (categoryName.isNotEmpty && !_foodCategories.contains(categoryName)) {
+                  setState(() {
+                    _foodCategories.add(categoryName);
+                    _selectedCategories.add(categoryName);
+                  });
+                  _customCategoryController.clear();
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Category "$categoryName" added'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                } else if (categoryName.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Please enter a category name'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Category already exists'),
+                      backgroundColor: AppColors.warning,
+                    ),
+                  );
+                }
+              },
+              child: Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCategoryChip(String label, bool isSelected) {
     return FilterChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (value) {
-        // In a real app, this would toggle the category
-        setState(() {});
+        setState(() {
+          if (value == true) {
+            _selectedCategories.add(label);
+          } else {
+            _selectedCategories.remove(label);
+          }
+        });
       },
-      backgroundColor: Colors.white,
+      backgroundColor: isSelected 
+        ? AppColors.primary.withOpacity(0.1)
+        : Colors.grey.shade100,
       selectedColor: AppColors.primary.withOpacity(0.2),
       checkmarkColor: AppColors.primary,
       labelStyle: TextStyle(
-        color: isSelected ? AppColors.primary : AppColors.textDark,
+        color: isSelected ? AppColors.primary : Colors.grey.shade700,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isSelected ? AppColors.primary : AppColors.dividerLight,
+          color: isSelected ? AppColors.primary : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
         ),
       ),
     );

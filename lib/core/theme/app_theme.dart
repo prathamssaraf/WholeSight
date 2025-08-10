@@ -8,17 +8,17 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         tertiary: AppColors.tertiary,
         error: AppColors.error,
-        background: AppColors.backgroundLight,
+        // background: AppColors.backgroundLight, // Deprecated - using surface instead
         surface: AppColors.surfaceLight,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onTertiary: Colors.white,
-        onBackground: AppColors.textDark,
+        // onBackground: AppColors.textDark, // Deprecated - using onSurface instead
         onSurface: AppColors.textDark,
       ),
       scaffoldBackgroundColor: AppColors.backgroundLight,
@@ -32,7 +32,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceLight,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textLight,
@@ -52,7 +52,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
         ),
       ),
-      dividerTheme: DividerThemeData(
+      dividerTheme: const DividerThemeData(
         color: AppColors.dividerLight,
         thickness: 1,
         space: 1,
@@ -139,17 +139,17 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: AppColors.primaryDark,
         secondary: AppColors.secondaryDark,
         tertiary: AppColors.tertiaryDark,
         error: AppColors.errorDark,
-        background: AppColors.backgroundDark,
+        // background: AppColors.backgroundDark, // Deprecated - using surface instead
         surface: AppColors.surfaceDark,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onTertiary: Colors.white,
-        onBackground: AppColors.textLight,
+        // onBackground: AppColors.textLight, // Deprecated - using onSurface instead
         onSurface: AppColors.textLight,
       ),
       scaffoldBackgroundColor: AppColors.backgroundDark,
@@ -163,7 +163,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceDark,
         selectedItemColor: AppColors.primaryDark,
         unselectedItemColor: AppColors.textDark,
@@ -183,7 +183,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
         ),
       ),
-      dividerTheme: DividerThemeData(
+      dividerTheme: const DividerThemeData(
         color: AppColors.dividerDark,
         thickness: 1,
         space: 1,

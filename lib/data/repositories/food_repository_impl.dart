@@ -405,6 +405,21 @@ class FoodRepositoryImpl implements FoodRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> updateFoodInMeal(
+      String mealId, String foodId, FoodItem updatedFoodItem) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await mealService.updateFoodInMeal(mealId, foodId, updatedFoodItem);
+        return const Right(null);
+      } catch (e) {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
   // @override
   // Future<Either<Failure, void>> addFoodToMeal(
   //     String mealId, FoodItem foodItem) {

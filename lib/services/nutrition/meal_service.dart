@@ -39,25 +39,24 @@ class MealService {
 
       // If no user or no nutrition profile, return default
       if (user == null || user.nutritionProfile == null) {
-        print(
-            'No user or nutrition profile found, using default calorie target');
+        AppLogger.info('No user or nutrition profile found, using default calorie target');
         return defaultTarget;
       }
 
       // If user has a calorie target in their profile, use that
-      if (user.nutritionProfile!.calorieTarget != null) {
+      if (user.nutritionProfile?.calorieTarget != null) {
         final calorieTarget = user.nutritionProfile!.calorieTarget!;
 
         // Convert to int regardless of whether it's int or double
         int target = calorieTarget.toInt();
-        print('Using user\'s calorie target: $target');
+        AppLogger.info('Using user\'s calorie target: $target');
         return target;
       }
 
       // Otherwise return default
       return defaultTarget;
     } catch (e) {
-      print('Error getting user calorie target: $e');
+      AppLogger.error('Error getting user calorie target', e);
       return 2000; // Default fallback
     }
   }
@@ -175,6 +174,76 @@ class MealService {
     } catch (e) {
       AppLogger.error('Failed to remove food from meal $mealId', e);
       throw Exception('Failed to remove food from meal: $e');
+    }
+  }
+
+  // Update a food item in a meal
+  Future<void> updateFoodInMeal(String mealId, String foodId, FoodItem updatedFoodItem) async {
+    try {
+      // First get the current meal
+      final mealData = await _firestoreService.getDocument(
+        collection: _mealsCollection,
+        documentId: mealId,
+      );
+
+      if (mealData == null) {
+        throw Exception('Meal not found');
+      }
+
+      final meal = Meal.fromJson(mealData);
+      final foods = meal.foods;
+
+      // Find the food item to update (similar logic to removeFoodFromMeal)
+      int indexToUpdate = -1;
+
+      // Try to identify the food by position if foodId is in format 'food_X'
+      if (foodId.startsWith('food_')) {
+        try {
+          final index = int.parse(foodId.split('_')[1]);
+          if (index >= 0 && index < foods.length) {
+            indexToUpdate = index;
+          }
+        } catch (e) {
+          // Parsing failed, continue with other approaches
+        }
+      }
+
+      // If we couldn't find by index, try a name-based approach
+      if (indexToUpdate == -1) {
+        for (int i = 0; i < foods.length; i++) {
+          if (foods[i].name == foodId) {
+            indexToUpdate = i;
+            break;
+          }
+        }
+      }
+
+      if (indexToUpdate == -1) {
+        throw Exception('Food item not found in meal');
+      }
+
+      // Get the old food item to calculate calorie difference
+      final oldFoodItem = foods[indexToUpdate];
+      final calorieDifference = updatedFoodItem.calories - oldFoodItem.calories;
+
+      // Update the food item at the found index
+      foods[indexToUpdate] = updatedFoodItem;
+
+      // Calculate new total calories
+      final newTotalCalories = meal.totalCalories + calorieDifference;
+
+      // Update the meal with the modified foods list and updated calories
+      await _firestoreService.updateDocument(
+        collection: _mealsCollection,
+        documentId: mealId,
+        data: {
+          'foods': foods.map((food) => food.toJson()).toList(),
+          'totalCalories': newTotalCalories,
+        },
+      );
+    } catch (e) {
+      AppLogger.error('Failed to update food in meal $mealId', e);
+      throw Exception('Failed to update food in meal: $e');
     }
   }
 

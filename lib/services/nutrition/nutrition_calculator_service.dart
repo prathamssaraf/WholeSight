@@ -1,6 +1,6 @@
 import 'package:whole_sight/domain/entities/nutrition_profile_entity.dart';
 import 'package:whole_sight/domain/entities/meal_entity.dart';
-import 'package:whole_sight/domain/entities/food_entity.dart';
+// Removed unused import: food_entity.dart
 
 abstract class NutritionCalculatorService {
   /// Calculates daily calorie needs based on user profile

@@ -113,6 +113,19 @@ class FoodItemDeleted extends FoodLoggingState {
   List<Object> get props => [mealId, foodId];
 }
 
+class FoodItemUpdated extends FoodLoggingState {
+  final String mealId;
+  final String foodId;
+
+  const FoodItemUpdated({
+    required this.mealId,
+    required this.foodId,
+  });
+
+  @override
+  List<Object> get props => [mealId, foodId];
+}
+
 class MealDeleted extends FoodLoggingState {
   final String mealId;
 

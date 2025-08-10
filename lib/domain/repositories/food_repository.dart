@@ -64,4 +64,8 @@ abstract class FoodRepository {
   // Add this new method for removing food from a meal
   Future<Either<Failure, void>> removeFoodFromMeal(
       String mealId, String foodId);
+
+  // Add this new method for updating food in a meal
+  Future<Either<Failure, void>> updateFoodInMeal(
+      String mealId, String foodId, FoodItem updatedFoodItem);
 }

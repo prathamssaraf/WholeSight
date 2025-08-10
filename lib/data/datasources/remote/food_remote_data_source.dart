@@ -3,8 +3,7 @@ import 'package:whole_sight/core/errors/exceptions.dart';
 import 'package:whole_sight/data/models/food_model.dart';
 import 'package:whole_sight/services/ai/recommendation_service.dart';
 import 'package:whole_sight/services/firebase/firestore_service.dart';
-import 'package:whole_sight/domain/entities/nutrition_profile_entity.dart';
-import 'package:whole_sight/domain/entities/food_entity.dart';
+// Removed unused imports
 
 // Define a local adapter for MealEntity to avoid conflicts
 class _InternalMealEntity {
