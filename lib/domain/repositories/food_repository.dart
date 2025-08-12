@@ -26,6 +26,26 @@ abstract class FoodRepository {
     int limit = 20,
   });
 
+  Future<Either<Failure, void>> addToFavorites({
+    required String userId,
+    required String foodId,
+  });
+  
+  Future<Either<Failure, void>> addFoodToFavorites({
+    required String userId,
+    required Map<String, dynamic> foodData,
+  });
+
+  Future<Either<Failure, void>> removeFromFavorites({
+    required String userId,
+    required String foodId,
+  });
+
+  Future<Either<Failure, bool>> isFavorite({
+    required String userId,
+    required String foodId,
+  });
+
   Future<Either<Failure, String>> addCustomFood({
     required FoodEntity food,
     required String userId,

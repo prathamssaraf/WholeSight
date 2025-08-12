@@ -67,6 +67,26 @@ abstract class FoodRemoteDataSource {
     required String userId,
     int limit = 20,
   });
+
+  Future<void> addToFavorites({
+    required String userId,
+    required String foodId,
+  });
+  
+  Future<void> addFoodToFavorites({
+    required String userId,
+    required Map<String, dynamic> foodData,
+  });
+
+  Future<void> removeFromFavorites({
+    required String userId,
+    required String foodId,
+  });
+
+  Future<bool> isFavorite({
+    required String userId,
+    required String foodId,
+  });
   
   Future<String> addCustomFood({
     required FoodModel food,
@@ -222,35 +242,195 @@ class FoodRemoteDataSourceImpl implements FoodRemoteDataSource {
     int limit = 20,
   }) async {
     try {
-      final favoriteFoodRefs = await firestoreService.getDocuments(
+      final favoriteFoodDocs = await firestoreService.getDocuments(
         collection: 'users/$userId/favoriteFoods',
         orderBy: 'timestamp',
         descending: true,
         limit: limit,
       );
       
-      // Extract food IDs from favorite foods collection
-      final foodIds = favoriteFoodRefs.map((doc) => doc['foodId'] as String).toList();
-      
-      if (foodIds.isEmpty) {
+      if (favoriteFoodDocs.isEmpty) {
         return [];
       }
       
-      // Fetch the actual food documents
+      // Convert stored food data directly to FoodModel objects
       final List<FoodModel> favoriteFoods = [];
       
-      for (final foodId in foodIds) {
-        final foodDoc = await firestoreService.getDocument(
-          collection: 'foods',
-          documentId: foodId,
-        );
-        
-        if (foodDoc != null) {
-          favoriteFoods.add(FoodModel.fromJson(foodDoc));
+      for (final doc in favoriteFoodDocs) {
+        // Check if this is the new format with complete food data
+        if (doc.containsKey('foodName')) {
+          final foodModel = FoodModel(
+            id: doc['id'] ?? 'favorite_${doc['foodName']}_${DateTime.now().millisecondsSinceEpoch}',
+            name: doc['foodName'] ?? 'Unknown Food',
+            description: 'Favorite food item',
+            servingSize: _parseServingSize(doc['servingSize']),
+            servingUnit: _parseServingUnit(doc['servingSize']),
+            calories: (doc['calories'] as num? ?? 0).toDouble(),
+            macronutrients: {
+              'protein': (doc['protein'] as num? ?? 0).toDouble(),
+              'carbohydrates': (doc['carbs'] as num? ?? 0).toDouble(),
+              'fat': (doc['fat'] as num? ?? 0).toDouble(),
+            },
+            micronutrients: {},
+            allergens: [],
+            categories: [],
+            isVerified: false,
+            isUserCreated: false,
+            createdAt: DateTime.now(),
+          );
+          favoriteFoods.add(foodModel);
+        } else if (doc.containsKey('foodId')) {
+          // Legacy format - try to fetch from foods collection
+          try {
+            final foodDoc = await firestoreService.getDocument(
+              collection: 'foods',
+              documentId: doc['foodId'],
+            );
+            
+            if (foodDoc != null) {
+              favoriteFoods.add(FoodModel.fromJson(foodDoc));
+            }
+          } catch (e) {
+            // If food document doesn't exist, skip this favorite
+            continue;
+          }
         }
       }
       
       return favoriteFoods;
+    } catch (e) {
+      throw ServerException();
+    }
+  }
+  
+  double _parseServingSize(String? servingSizeString) {
+    if (servingSizeString == null) return 1.0;
+    
+    // Extract numeric value from strings like "1 medium (182g)" or "100g"
+    final regex = RegExp(r'(\d+\.?\d*)');
+    final match = regex.firstMatch(servingSizeString);
+    return match != null ? double.tryParse(match.group(1)!) ?? 1.0 : 1.0;
+  }
+  
+  String _parseServingUnit(String? servingSizeString) {
+    if (servingSizeString == null) return 'serving';
+    
+    // Try to extract unit from strings like "1 medium (182g)" or "100g" 
+    if (servingSizeString.contains('g')) return 'g';
+    if (servingSizeString.contains('ml') || servingSizeString.contains('mL')) return 'ml';
+    if (servingSizeString.contains('cup')) return 'cup';
+    if (servingSizeString.contains('medium') || servingSizeString.contains('large') || servingSizeString.contains('small')) return 'item';
+    
+    return 'serving';
+  }
+
+  @override
+  Future<void> addToFavorites({
+    required String userId,
+    required String foodId,
+  }) async {
+    try {
+      // For now, store the foodId as provided and let the UI handle the food data lookup
+      await firestoreService.addDocument(
+        collection: 'users/$userId/favoriteFoods',
+        data: {
+          'foodId': foodId,
+          'timestamp': FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (e) {
+      throw ServerException();
+    }
+  }
+
+  @override
+  Future<void> addFoodToFavorites({
+    required String userId,
+    required Map<String, dynamic> foodData,
+  }) async {
+    try {
+      await firestoreService.addDocument(
+        collection: 'users/$userId/favoriteFoods',
+        data: {
+          'foodName': foodData['name'],
+          'calories': foodData['calories'],
+          'servingSize': foodData['servingSize'],
+          'protein': foodData['protein'],
+          'carbs': foodData['carbs'], 
+          'fat': foodData['fat'],
+          'timestamp': FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (e) {
+      throw ServerException();
+    }
+  }
+
+  @override
+  Future<void> removeFromFavorites({
+    required String userId,
+    required String foodId,
+  }) async {
+    try {
+      // Look for documents with either foodId or foodName matching the provided foodId
+      final favoriteDocs = await firestoreService.getDocuments(
+        collection: 'users/$userId/favoriteFoods',
+        whereConditions: [
+          ['foodId', '==', foodId],
+        ],
+      );
+      
+      // Also check for new format documents by foodName
+      final favoriteDocsbyName = await firestoreService.getDocuments(
+        collection: 'users/$userId/favoriteFoods',
+        whereConditions: [
+          ['foodName', '==', foodId],
+        ],
+      );
+      
+      // Combine both results
+      final allDocs = [...favoriteDocs, ...favoriteDocsbyName];
+      
+      for (final doc in allDocs) {
+        await firestoreService.deleteDocument(
+          collection: 'users/$userId/favoriteFoods',
+          documentId: doc['id'],
+        );
+      }
+    } catch (e) {
+      throw ServerException();
+    }
+  }
+
+  @override
+  Future<bool> isFavorite({
+    required String userId,
+    required String foodId,
+  }) async {
+    try {
+      // Check both legacy foodId and new foodName format
+      final favoriteDocs = await firestoreService.getDocuments(
+        collection: 'users/$userId/favoriteFoods',
+        whereConditions: [
+          ['foodId', '==', foodId],
+        ],
+        limit: 1,
+      );
+      
+      if (favoriteDocs.isNotEmpty) {
+        return true;
+      }
+      
+      // Also check new format with foodName
+      final favoriteDocsbyName = await firestoreService.getDocuments(
+        collection: 'users/$userId/favoriteFoods',
+        whereConditions: [
+          ['foodName', '==', foodId],
+        ],
+        limit: 1,
+      );
+      
+      return favoriteDocsbyName.isNotEmpty;
     } catch (e) {
       throw ServerException();
     }

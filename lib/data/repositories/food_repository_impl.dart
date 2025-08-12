@@ -183,6 +183,86 @@ class FoodRepositoryImpl implements FoodRepository {
   }
 
   @override
+  Future<Either<Failure, void>> addToFavorites({
+    required String userId,
+    required String foodId,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.addToFavorites(
+          userId: userId,
+          foodId: foodId,
+        );
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> addFoodToFavorites({
+    required String userId,
+    required Map<String, dynamic> foodData,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.addFoodToFavorites(
+          userId: userId,
+          foodData: foodData,
+        );
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeFromFavorites({
+    required String userId,
+    required String foodId,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.removeFromFavorites(
+          userId: userId,
+          foodId: foodId,
+        );
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> isFavorite({
+    required String userId,
+    required String foodId,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final isFav = await remoteDataSource.isFavorite(
+          userId: userId,
+          foodId: foodId,
+        );
+        return Right(isFav);
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, String>> addCustomFood({
     required FoodEntity food,
     required String userId,

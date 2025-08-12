@@ -41,6 +41,10 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
     on<DeleteFoodFromMealEvent>(_onDeleteFoodFromMeal);
     on<UpdateFoodInMealEvent>(_onUpdateFoodInMeal);
     on<ScanBarcodeEvent>(_onScanBarcode);
+    on<AddToFavoritesEvent>(_onAddToFavorites);
+    on<AddFoodToFavoritesEvent>(_onAddFoodToFavorites);
+    on<RemoveFromFavoritesEvent>(_onRemoveFromFavorites);
+    on<LoadFavoriteFoodsEvent>(_onLoadFavoriteFoods);
   }
 
   Future<void> _onSearchFoods(
@@ -404,6 +408,87 @@ class FoodLoggingBloc extends Bloc<FoodLoggingEvent, FoodLoggingState> {
       return null;
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> _onAddToFavorites(
+    AddToFavoritesEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+    
+    try {
+      final result = await foodRepository.addToFavorites(
+        userId: event.userId,
+        foodId: event.foodId,
+      );
+      
+      result.fold(
+        (failure) => emit(FoodLoggingError(message: failure.toString())),
+        (_) => emit(FoodAddedToFavorites(foodId: event.foodId)),
+      );
+    } catch (e) {
+      emit(FoodLoggingError(message: 'Failed to add to favorites: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onAddFoodToFavorites(
+    AddFoodToFavoritesEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+    
+    try {
+      final result = await foodRepository.addFoodToFavorites(
+        userId: event.userId,
+        foodData: event.foodData,
+      );
+      
+      result.fold(
+        (failure) => emit(FoodLoggingError(message: failure.toString())),
+        (_) => emit(FoodAddedToFavorites(foodId: event.foodData['name'])),
+      );
+    } catch (e) {
+      emit(FoodLoggingError(message: 'Failed to add to favorites: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRemoveFromFavorites(
+    RemoveFromFavoritesEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+    
+    try {
+      final result = await foodRepository.removeFromFavorites(
+        userId: event.userId,
+        foodId: event.foodId,
+      );
+      
+      result.fold(
+        (failure) => emit(FoodLoggingError(message: failure.toString())),
+        (_) => emit(FoodRemovedFromFavorites(foodId: event.foodId)),
+      );
+    } catch (e) {
+      emit(FoodLoggingError(message: 'Failed to remove from favorites: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onLoadFavoriteFoods(
+    LoadFavoriteFoodsEvent event,
+    Emitter<FoodLoggingState> emit,
+  ) async {
+    emit(FoodLoggingLoading());
+    
+    try {
+      final result = await foodRepository.getFavoriteFoods(userId: event.userId);
+      
+      result.fold(
+        (failure) => emit(FoodLoggingError(message: failure.toString())),
+        (favoriteFoods) => emit(FavoriteFoodsLoaded(favoriteFoods: favoriteFoods)),
+      );
+    } catch (e) {
+      emit(FoodLoggingError(message: 'Failed to load favorites: ${e.toString()}'));
     }
   }
 }

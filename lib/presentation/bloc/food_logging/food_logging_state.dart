@@ -134,3 +134,31 @@ class MealDeleted extends FoodLoggingState {
   @override
   List<Object> get props => [mealId];
 }
+
+// Favorite states
+class FoodAddedToFavorites extends FoodLoggingState {
+  final String foodId;
+
+  const FoodAddedToFavorites({required this.foodId});
+
+  @override
+  List<Object> get props => [foodId];
+}
+
+class FoodRemovedFromFavorites extends FoodLoggingState {
+  final String foodId;
+
+  const FoodRemovedFromFavorites({required this.foodId});
+
+  @override
+  List<Object> get props => [foodId];
+}
+
+class FavoriteFoodsLoaded extends FoodLoggingState {
+  final List<FoodEntity> favoriteFoods;
+
+  const FavoriteFoodsLoaded({required this.favoriteFoods});
+
+  @override
+  List<Object> get props => [favoriteFoods];
+}

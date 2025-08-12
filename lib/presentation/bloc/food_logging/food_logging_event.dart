@@ -180,6 +180,57 @@ class DeleteMealEvent extends FoodLoggingEvent {
   List<Object> get props => [mealId, userId, date];
 }
 
+// Favorite events
+class AddToFavoritesEvent extends FoodLoggingEvent {
+  final String userId;
+  final String foodId;
+
+  const AddToFavoritesEvent({
+    required this.userId,
+    required this.foodId,
+  });
+
+  @override
+  List<Object> get props => [userId, foodId];
+}
+
+class AddFoodToFavoritesEvent extends FoodLoggingEvent {
+  final String userId;
+  final Map<String, dynamic> foodData;
+
+  const AddFoodToFavoritesEvent({
+    required this.userId,
+    required this.foodData,
+  });
+
+  @override
+  List<Object> get props => [userId, foodData];
+}
+
+class RemoveFromFavoritesEvent extends FoodLoggingEvent {
+  final String userId;
+  final String foodId;
+
+  const RemoveFromFavoritesEvent({
+    required this.userId,
+    required this.foodId,
+  });
+
+  @override
+  List<Object> get props => [userId, foodId];
+}
+
+class LoadFavoriteFoodsEvent extends FoodLoggingEvent {
+  final String userId;
+
+  const LoadFavoriteFoodsEvent({
+    required this.userId,
+  });
+
+  @override
+  List<Object> get props => [userId];
+}
+
 // Barcode scanning event with portion customization
 class ScanBarcodeEvent extends FoodLoggingEvent {
   final String barcode;

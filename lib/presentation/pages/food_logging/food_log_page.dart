@@ -127,6 +127,7 @@ class _FoodLogPageState extends State<FoodLogPage> {
   String _userId = '';
   bool _isLoading = false;
   bool _isAuthChecking = true; // New flag to track auth check status
+  bool _isMealLoading = false; // New flag to prevent multiple meal loading requests
   List<Map<String, dynamic>> _mealData = [];
   StreamSubscription<UserEntity?>? _authSubscription; // For auth state changes
   int _calorieTarget = 2000;
@@ -236,14 +237,19 @@ class _FoodLogPageState extends State<FoodLogPage> {
   }
 
   void _loadMeals() {
-    if (_userId.isNotEmpty) {
+    if (_userId.isNotEmpty && !_isMealLoading) {
       print('Loading meals for user: $_userId on date: $_selectedDate');
+      setState(() {
+        _isMealLoading = true;
+      });
       context.read<FoodLoggingBloc>().add(
             LoadMealsForDateEvent(
               date: _selectedDate,
               userId: _userId,
             ),
           );
+    } else if (_isMealLoading) {
+      print('Meals already loading, skipping request');
     } else {
       print('Cannot load meals: User ID is empty');
     }
@@ -520,30 +526,34 @@ class _FoodLogPageState extends State<FoodLogPage> {
   Widget build(BuildContext context) {
     return BlocConsumer<FoodLoggingBloc, FoodLoggingState>(
       listener: (context, state) {
-        if (state is FoodLoggingLoading) {
-          setState(() {
-            _isLoading = true;
-          });
-        } else if (state is MealsLoaded) {
+        if (state is MealsLoaded) {
           setState(() {
             _isLoading = false;
+            _isMealLoading = false; // Reset loading flag
             _mealData = _convertMealsToMealData(state.meals);
             print('Meals loaded: ${_mealData.length} meals found');
           });
-          _loadCalorieTarget(); // Add this line
+          _loadCalorieTarget();
         } else if (state is FoodItemAdded) {
-          // No need to update state here as we're reloading meals
           print('Food item added to meal: ${state.mealId}');
-          _loadMeals(); // Reload to show the updated meal
+          // Trigger reload after a short delay to prevent immediate loop
+          Future.delayed(Duration.zero, () {
+            if (mounted) _loadMeals();
+          });
         } else if (state is FoodItemDeleted) {
           print('Food item deleted from meal: ${state.mealId}');
-          _loadMeals(); // Reload to show the updated meal
+          Future.delayed(Duration.zero, () {
+            if (mounted) _loadMeals();
+          });
         } else if (state is MealDeleted) {
           print('Meal deleted: ${state.mealId}');
-          _loadMeals(); // Reload to show the removed meal
+          Future.delayed(Duration.zero, () {
+            if (mounted) _loadMeals();
+          });
         } else if (state is FoodLoggingError) {
           setState(() {
             _isLoading = false;
+            _isMealLoading = false; // Reset loading flag on error
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -568,6 +578,13 @@ class _FoodLogPageState extends State<FoodLogPage> {
               ),
             ),
           );
+        }
+
+        // Set loading state based on BLoC state, but only for meal loading
+        if (state is FoodLoggingLoading && _mealData.isEmpty) {
+          _isLoading = true;
+        } else if (state is MealsLoaded || state is FoodLoggingError) {
+          _isLoading = false;
         }
 
         // If no user authenticated
@@ -1195,7 +1212,20 @@ class _FoodLogPageState extends State<FoodLogPage> {
                   title: const Text('Add to Favorites'),
                   onTap: () {
                     Navigator.pop(context);
-                    // Add favorites logic here
+                    // Add to favorites using complete food data
+                    context.read<FoodLoggingBloc>().add(
+                      AddFoodToFavoritesEvent(
+                        userId: _userId,
+                        foodData: food,
+                      ),
+                    );
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Added to favorites!'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -1573,6 +1603,11 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
       'description': 'Search our food database',
     },
     {
+      'title': 'Favorites',
+      'icon': Icons.favorite,
+      'description': 'Choose from your favorites',
+    },
+    {
       'title': 'Scan',
       'icon': Icons.camera_alt_outlined,
       'description': 'Use camera to identify food',
@@ -1744,6 +1779,32 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
     );
   }
 
+  void _addFavoriteToMeal(FoodEntity food) {
+    final foodItem = FoodItem(
+      name: food.name,
+      quantity: '${FoodLogUtils.formatNutritionValue(food.servingSize)} ${food.servingUnit}',
+      calories: food.calories.toInt(),
+      protein: (food.macronutrients['protein'] ?? 0).toDouble(),
+      carbs: (food.macronutrients['carbs'] ?? food.macronutrients['carbohydrates'] ?? 0).toDouble(),
+      fat: (food.macronutrients['fat'] ?? 0).toDouble(),
+    );
+    context.read<FoodLoggingBloc>().add(
+          AddFoodToMealEvent(
+            mealId: widget.mealId,
+            foodItem: foodItem,
+            userId: widget.userId,
+            date: widget.date,
+          ),
+        );
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${food.name} added to meal'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -1826,7 +1887,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
               textColor: Colors.white,
               onPressed: () {
                 setState(() {
-                  _selectedInputMethod = 4; // Switch to custom food tab
+                  _selectedInputMethod = 5; // Switch to custom food tab
                 });
               },
             ),
@@ -2095,13 +2156,15 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
     switch (_selectedInputMethod) {
       case 0: // Search
         return _buildSearchContent();
-      case 1: // Camera
+      case 1: // Favorites
+        return _buildFavoritesContent();
+      case 2: // Scan (Camera)
         return _buildCameraContent();
-      case 2: // Barcode
+      case 3: // Barcode
         return _buildBarcodeContent();
-      case 3: // Voice
+      case 4: // Voice
         return _buildVoiceContent();
-      case 4: // Custom
+      case 5: // Custom
         return _buildCustomContent();
       default:
         return _buildSearchContent();
@@ -2202,7 +2265,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
                                 onPressed: () {
                                   // Switch to custom food input
                                   setState(() {
-                                    _selectedInputMethod = 4;
+                                    _selectedInputMethod = 5;
                                   });
                                 },
                                 icon: const Icon(Icons.add),
@@ -2304,6 +2367,102 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
                 child: InkWell(
                   onTap: () {
                     _addFoodToMeal(food);
+                  },
+                  child: Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteItem(FoodEntity food) {
+    return InkWell(
+      onTap: () {
+        // Optional: Handle tap on the entire item if needed
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left section with favorite icon
+            Icon(
+              Icons.favorite,
+              color: Colors.red.shade400,
+              size: 20,
+            ),
+
+            SizedBox(width: 12),
+
+            // Middle section with food details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Food name
+                  Text(
+                    food.name,
+                    style: AppTextStyles.subtitle2.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  // Serving size
+                  Text(
+                    '${FoodLogUtils.formatNutritionValue(food.servingSize)} ${food.servingUnit}',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMedium,
+                    ),
+                  ),
+
+                  SizedBox(height: 8),
+
+                  // Make the nutrients row scrollable
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildNutrientBadge(
+                            'Cal', '${food.calories}', AppColors.primary),
+                        SizedBox(width: 16),
+                        _buildNutrientBadge(
+                            'C', '${FoodLogUtils.formatNutritionValue(food.macronutrients['carbs'] ?? food.macronutrients['carbohydrates'] ?? 0)}g', AppColors.carbs),
+                        SizedBox(width: 16),
+                        _buildNutrientBadge(
+                            'P', '${FoodLogUtils.formatNutritionValue(food.macronutrients['protein'] ?? 0)}g', AppColors.protein),
+                        SizedBox(width: 16),
+                        _buildNutrientBadge(
+                            'F', '${FoodLogUtils.formatNutritionValue(food.macronutrients['fat'] ?? 0)}g', AppColors.fats),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right section with add button
+            Container(
+              width: 40,
+              height: 40,
+              child: Material(
+                color: AppColors.primary,
+                shape: CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    _addFavoriteToMeal(food);
                   },
                   child: Icon(
                     Icons.add,
@@ -2437,6 +2596,113 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
     );
   }
 
+  Widget _buildFavoritesContent() {
+    return BlocBuilder<FoodLoggingBloc, FoodLoggingState>(
+      builder: (context, state) {
+        if (state is FoodLoggingLoading) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        } else if (state is FavoriteFoodsLoaded) {
+          if (state.favoriteFoods.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.favorite_outline,
+                    size: 64,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No favorite foods yet',
+                    style: AppTextStyles.headline3.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add foods to your favorites from the search results',
+                    style: AppTextStyles.body1.copyWith(
+                      color: Colors.grey.shade500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedInputMethod = 0; // Switch to search
+                      });
+                    },
+                    icon: const Icon(Icons.search),
+                    label: const Text('Search for Foods'),
+                  ),
+                ],
+              ),
+            );
+          }
+          
+          return ListView.builder(
+            itemCount: state.favoriteFoods.length,
+            itemBuilder: (context, index) {
+              final food = state.favoriteFoods[index];
+              return _buildFavoriteItem(food);
+            },
+          );
+        } else if (state is FoodLoggingError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading favorites',
+                  style: AppTextStyles.headline3.copyWith(
+                    color: Colors.red.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  state.message,
+                  style: AppTextStyles.body1.copyWith(
+                    color: Colors.grey.shade500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    context.read<FoodLoggingBloc>().add(
+                      LoadFavoriteFoodsEvent(userId: widget.userId),
+                    );
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+        
+        // Initial state - load favorites
+        context.read<FoodLoggingBloc>().add(
+          LoadFavoriteFoodsEvent(userId: widget.userId),
+        );
+        
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+  }
+
   Widget _buildVoiceContent() {
     return Center(
       child: Column(
@@ -2517,6 +2783,7 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
           ),
           const SizedBox(height: 16),
 
+          // Favorites section
           // Food name
           TextField(
             controller: _foodNameController,
@@ -2871,4 +3138,5 @@ class _AddFoodBottomSheetState extends State<AddFoodBottomSheet> {
       ),
     );
   }
+
 }
