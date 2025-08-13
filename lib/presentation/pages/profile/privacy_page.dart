@@ -5,6 +5,10 @@ import 'package:whole_sight/core/theme/app_text_styles.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_bloc.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_event.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_state.dart';
+import 'package:whole_sight/services/data/data_export_service.dart';
+import 'package:whole_sight/presentation/widgets/dialogs/data_export_dialog.dart';
+import 'package:whole_sight/domain/repositories/food_repository.dart';
+import 'package:whole_sight/di/dependency_injection.dart';
 
 class PrivacyPage extends StatefulWidget {
   const PrivacyPage({super.key});
@@ -334,40 +338,16 @@ class _PrivacyPageState extends State<PrivacyPage> {
     );
   }
 
-  // Dialog to confirm data download
+  // Dialog to show data export options
   void _showDataDownloadDialog() {
+    // Get the FoodRepository from GetIt
+    final foodRepository = getIt<FoodRepository>();
+    final dataExportService = DataExportService(foodRepository: foodRepository);
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Download Your Data'),
-        content: const Text(
-          'We will prepare a download package with all your personal data, nutrition history, and preferences. You\'ll receive an email with the download link once it\'s ready.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textMedium),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content:
-                      Text('Data download requested. Check your email soon.'),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            },
-            child: const Text(
-              'Request Download',
-              style: TextStyle(color: AppColors.primary),
-            ),
-          ),
-        ],
+      builder: (context) => DataExportDialog(
+        dataExportService: dataExportService,
       ),
     );
   }

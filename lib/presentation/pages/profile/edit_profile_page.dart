@@ -9,7 +9,8 @@ import 'package:whole_sight/presentation/bloc/auth/auth_bloc.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_event.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_state.dart';
 import 'package:whole_sight/presentation/widgets/common/loading_indicator.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class EditProfilePage extends StatefulWidget {
   final UserEntity user;
@@ -24,7 +25,126 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _nameController;
   String? _selectedPhotoUrl;
   bool _isLoading = false;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  // Local storage helper methods
+  Future<String> _getLocalStoragePath() async {
+    final Directory appDocDir = await getApplicationDocumentsDirectory();
+    final String profileImagesPath = '${appDocDir.path}/profile_images';
+    
+    // Create directory if it doesn't exist
+    final Directory profileImagesDir = Directory(profileImagesPath);
+    if (!await profileImagesDir.exists()) {
+      await profileImagesDir.create(recursive: true);
+    }
+    
+    return profileImagesPath;
+  }
+
+  Future<String> _saveImageLocally(File imageFile) async {
+    try {
+      final String localPath = await _getLocalStoragePath();
+      final String fileName = 'profile_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String fullPath = '$localPath/$fileName';
+      
+      // Copy the image to local storage
+      final File localFile = await imageFile.copy(fullPath);
+      
+      print('✅ Profile image saved locally: ${localFile.path}');
+      return localFile.path;
+    } catch (e) {
+      print('❌ Failed to save image locally: $e');
+      throw Exception('Failed to save image locally: $e');
+    }
+  }
+
+  Future<void> _deleteOldProfileImages() async {
+    try {
+      final String localPath = await _getLocalStoragePath();
+      final Directory profileImagesDir = Directory(localPath);
+      
+      if (await profileImagesDir.exists()) {
+        final List<FileSystemEntity> files = profileImagesDir.listSync();
+        
+        // Delete old profile images for this user
+        for (final file in files) {
+          if (file is File && file.path.contains('profile_${widget.user.id}_')) {
+            await file.delete();
+            print('🗑️ Deleted old profile image: ${file.path}');
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Could not clean up old profile images: $e');
+      // Non-critical error, continue
+    }
+  }
+
+  // Helper method to get the correct ImageProvider for CircleAvatar
+  ImageProvider? _getImageProvider(String imagePath) {
+    // Check if it's a local file path
+    if (imagePath.startsWith('/') || imagePath.startsWith('file://')) {
+      final File imageFile = File(imagePath);
+      if (imageFile.existsSync()) {
+        return FileImage(imageFile);
+      }
+      return null;
+    } else {
+      // Network URL
+      return NetworkImage(imagePath);
+    }
+  }
+
+  // Helper method to build image widget that handles both local and network images
+  Widget _buildImageWidget(String? imagePath, {required double width, required double height, required double borderRadius}) {
+    if (imagePath == null) {
+      return Icon(
+        Icons.person,
+        size: width * 0.6,
+        color: AppColors.primary,
+      );
+    }
+
+    // Check if it's a local file path
+    if (imagePath.startsWith('/') || imagePath.startsWith('file://')) {
+      // Local file
+      final File imageFile = File(imagePath);
+      if (imageFile.existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: Image.file(
+            imageFile,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+          ),
+        );
+      } else {
+        // File doesn't exist, show default icon
+        return Icon(
+          Icons.person,
+          size: width * 0.6,
+          color: AppColors.primary,
+        );
+      }
+    } else {
+      // Network URL
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Image.network(
+          imagePath,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.person,
+              size: width * 0.6,
+              color: AppColors.primary,
+            );
+          },
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -126,32 +246,57 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
 
       try {
-        // Upload directly to Firebase Storage
+        // Save image locally instead of Firebase Storage
         final File imageFile = File(image.path);
-        final String fileName =
-            'profile_${widget.user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final Reference storageRef =
-            _storage.ref().child('profile_images/$fileName');
+        
+        print('💾 Saving profile image locally...');
+        
+        // Delete old profile images to save space
+        await _deleteOldProfileImages();
+        
+        // Save the new image locally
+        final String localImagePath = await _saveImageLocally(imageFile);
 
-        // Upload the file
-        final UploadTask uploadTask = storageRef.putFile(imageFile);
-
-        // Get download URL after upload completes
-        final TaskSnapshot taskSnapshot = await uploadTask;
-        final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
-
-        // Update the selected photo URL
+        // Update the selected photo URL with local path
         setState(() {
-          _selectedPhotoUrl = downloadUrl;
+          _selectedPhotoUrl = localImagePath;
           _isLoading = false;
         });
+        
+        print('✅ Profile image saved successfully: $localImagePath');
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile picture updated!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       } catch (e) {
         setState(() {
           _isLoading = false;
         });
 
+        print('Profile image save error: $e');
+        
+        String errorMessage;
+        if (e.toString().contains('permission') || e.toString().contains('denied')) {
+          errorMessage = 'Storage permission denied. Please check app permissions.';
+        } else if (e.toString().contains('space') || e.toString().contains('storage')) {
+          errorMessage = 'Not enough storage space. Please free up some space.';
+        } else if (e.toString().contains('path') || e.toString().contains('directory')) {
+          errorMessage = 'Could not access storage directory.';
+        } else {
+          errorMessage = 'Failed to save image: ${e.toString().length > 100 ? e.toString().substring(0, 100) + '...' : e.toString()}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading image: ${e.toString()}')),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
         );
       }
     }
@@ -214,34 +359,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
         child: CircleAvatar(
           radius: 30,
           backgroundColor: AppColors.primary.withOpacity(0.1),
-          child: url != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: Image.network(
-                    url,
-                    width: 60,
-                    height: 60,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Text(
-                        widget.user.name.isNotEmpty
-                            ? widget.user.name[0].toUpperCase()
-                            : 'U',
-                        style: AppTextStyles.headline4.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      );
-                    },
-                  ),
-                )
-              : Text(
+          backgroundImage: url != null ? _getImageProvider(url) : null,
+          child: url == null
+              ? Text(
                   widget.user.name.isNotEmpty
                       ? widget.user.name[0].toUpperCase()
                       : 'U',
                   style: AppTextStyles.headline4.copyWith(
                     color: AppColors.primary,
                   ),
-                ),
+                )
+              : null,
         ),
       ),
     );
@@ -291,37 +419,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           CircleAvatar(
                             radius: 60,
                             backgroundColor: AppColors.primary.withOpacity(0.1),
-                            child: _selectedPhotoUrl != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(60),
-                                    child: Image.network(
-                                      _selectedPhotoUrl!,
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return Text(
-                                          _nameController.text.isNotEmpty
-                                              ? _nameController.text[0]
-                                                  .toUpperCase()
-                                              : 'U',
-                                          style:
-                                              AppTextStyles.headline1.copyWith(
-                                            color: AppColors.primary,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                                : Text(
+                            backgroundImage: _selectedPhotoUrl != null ? _getImageProvider(_selectedPhotoUrl!) : null,
+                            child: _selectedPhotoUrl == null
+                                ? Text(
                                     _nameController.text.isNotEmpty
                                         ? _nameController.text[0].toUpperCase()
                                         : 'U',
                                     style: AppTextStyles.headline1.copyWith(
                                       color: AppColors.primary,
                                     ),
-                                  ),
+                                  )
+                                : null,
                           ),
                           Positioned(
                             bottom: 0,
