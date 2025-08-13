@@ -36,10 +36,15 @@ class BottomNav extends StatelessWidget {
             icon: Icons.restaurant_outlined,
             activeIcon: Icons.restaurant,
             label: 'Food Log',
-            isMiddle: true,
           ),
           _buildNavItem(
             index: 2,
+            icon: Icons.psychology_outlined,
+            activeIcon: Icons.psychology,
+            label: 'NutriBot',
+          ),
+          _buildNavItem(
+            index: 3,
             icon: Icons.person_outline,
             activeIcon: Icons.person,
             label: 'Profile',
@@ -54,7 +59,6 @@ class BottomNav extends StatelessWidget {
     required IconData icon,
     required IconData activeIcon,
     required String label,
-    bool isMiddle = false,
   }) {
     final isActive = currentIndex == index;
 
@@ -64,7 +68,7 @@ class BottomNav extends StatelessWidget {
         padding: EdgeInsets.symmetric(
           // Slightly reduced vertical padding
           vertical: 6.0,
-          horizontal: isMiddle ? 24.0 : 4.0,
+          horizontal: 4.0,
         ),
         child: InkWell(
           onTap: () => onTap(index),

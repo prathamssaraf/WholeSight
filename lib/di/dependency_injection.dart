@@ -17,16 +17,18 @@ import 'package:whole_sight/domain/usecases/user/create_user_profile.dart';
 import 'package:whole_sight/domain/usecases/user/get_nutrition_insights.dart';
 import 'package:whole_sight/domain/usecases/user/update_user_goals.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_bloc.dart';
-import 'package:whole_sight/presentation/bloc/food_logging/food_logging_bloc.dart';
 import 'package:whole_sight/presentation/bloc/nutrition/nutrition_bloc.dart';
 import 'package:whole_sight/services/ai/gemini_service.dart';
 import 'package:whole_sight/services/ai/image_recognition_service.dart';
 import 'package:whole_sight/services/ai/recommendation_service.dart';
+import 'package:whole_sight/services/ai/dietician_ai_service.dart';
 import 'package:whole_sight/services/auth/auth_service.dart';
 import 'package:whole_sight/services/firebase/firestore_service.dart';
 import 'package:whole_sight/services/nutrition/food_database_service.dart';
 import 'package:whole_sight/services/nutrition/nutrition_calculator_service.dart';
+import 'package:whole_sight/services/data/data_export_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:whole_sight/services/nutrition/meal_service.dart';
 import 'package:whole_sight/presentation/bloc/food_logging/food_logging_bloc.dart';
@@ -73,9 +75,12 @@ Future<void> initDependencies() async {
   // AI Services
   // Note: You'll need to replace 'YOUR_API_KEY' with your actual Gemini API key
   // In production, this should be securely stored and accessed
+  final apiKey = dotenv.env['GEMINI_API_KEY'] ?? 'fallback_key';
+  print('🔑 Gemini API Key loaded successfully'); // Debug log
+  
   final model = GenerativeModel(
-    model: 'gemini-pro',
-    apiKey: 'YOUR_API_KEY',
+    model: 'gemini-1.5-flash', // Updated to the current model
+    apiKey: apiKey,
   );
 
   getIt.registerSingleton<GenerativeModel>(model);
@@ -90,6 +95,14 @@ Future<void> initDependencies() async {
 
   getIt.registerLazySingleton<RecommendationService>(
     () => RecommendationServiceImpl(geminiService: getIt<GeminiService>()),
+  );
+
+  getIt.registerLazySingleton<DieticianAIService>(
+    () => DieticianAIServiceImpl(geminiService: getIt<GeminiService>()),
+  );
+
+  getIt.registerLazySingleton<DataExportService>(
+    () => DataExportService(foodRepository: getIt<FoodRepository>()),
   );
 
   // Firebase Services

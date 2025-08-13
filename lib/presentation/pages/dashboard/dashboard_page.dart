@@ -8,6 +8,7 @@ import 'package:whole_sight/presentation/bloc/auth/auth_event.dart';
 import 'package:whole_sight/presentation/bloc/auth/auth_state.dart';
 import 'package:whole_sight/presentation/pages/food_logging/food_log_page.dart';
 import 'package:whole_sight/presentation/pages/dashboard/insights_page.dart';
+import 'package:whole_sight/presentation/pages/ai_dietician/ai_dietician_page.dart';
 import 'package:whole_sight/presentation/pages/profile/profile_page.dart';
 import 'package:whole_sight/presentation/widgets/common/bottom_nav.dart';
 import 'package:whole_sight/services/auth/auth_service.dart';
@@ -50,6 +51,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final List<String> _titles = [
     'Dashboard',
     'Food Log',
+    'NutriBot',
     'Profile',
   ];
 
@@ -60,6 +62,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _pages = [
       InsightsPage(key: _insightsKey),
       FoodLogPage(key: _foodLogKey),
+      const AIDieticianPage(),
       const ProfilePage(),
     ];
     _loadUserData();
@@ -251,6 +254,11 @@ class _DashboardPageState extends State<DashboardPage> {
       // For food log page, rebuild it as well
       setState(() {
         _pages[1] = FoodLogPage(key: GlobalKey());
+      });
+    } else if (_currentIndex == 2) {
+      // For NutriBot page, rebuild it as well
+      setState(() {
+        _pages[2] = const AIDieticianPage();
       });
     }
   }

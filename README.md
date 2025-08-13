@@ -14,6 +14,8 @@ WholeSight is a comprehensive Flutter-based nutrition and health assistant that 
 
 ### 🍽️ Smart Food Logging
 - **AI-Powered Food Recognition**: Camera-based food identification using Google Gemini
+- **NutriBot Integration**: Describe food in text and get instant nutritional analysis
+- **One-Click Food Logging**: Analyze food descriptions and add directly to food log
 - **Barcode Scanning**: Instant product lookup via Open Food Facts API
 - **Voice Input**: Speech-to-text food logging for hands-free entry
 - **Manual Entry**: Comprehensive food database search and custom food creation
@@ -39,10 +41,13 @@ WholeSight is a comprehensive Flutter-based nutrition and health assistant that 
 - **Progress Tracking**: Visual goal progress monitoring
 
 ### 🧠 AI & Intelligence
-- **Gemini AI Integration**: Advanced food recognition and nutrition analysis
+- **NutriBot AI Assistant**: Intelligent nutrition coach powered by Google Gemini
+- **Smart Food Analysis**: Text-to-nutrition analysis with "Add to Log" functionality
+- **Personalized Coaching**: Context-aware advice based on user goals and preferences
+- **Quick & Detailed Analysis**: Concise daily summaries with option for comprehensive breakdowns
+- **Conversation Memory**: Contextual conversations with access to user's food logs
 - **USDA Food Database**: Comprehensive food nutrition data
 - **Recipe Analysis**: Ingredient breakdown and nutrition calculation
-- **Personalized Recommendations**: AI-driven food suggestions
 - **Predictive Analytics**: Health trend analysis and insights
 
 ### 📱 User Experience
@@ -67,11 +72,13 @@ WholeSight is a comprehensive Flutter-based nutrition and health assistant that 
 - Multiple authentication options
 - Profile setup wizard
 
-### Food Logging
+### Food Logging & NutriBot
 - Camera-based food recognition
 - Barcode scanning interface
 - Voice input for hands-free logging
 - Manual food entry with search
+- NutriBot AI assistant for nutrition coaching
+- Text-based food analysis with direct logging
 
 ### Dashboard
 - Daily progress overview
