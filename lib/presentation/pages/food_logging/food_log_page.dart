@@ -1522,11 +1522,11 @@ class _FoodLogPageState extends State<FoodLogPage> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: ColorScheme.dark(
               primary: AppColors.primary,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textDark,
+              surface: Colors.black,
+              onSurface: Colors.white,
             ),
           ),
           child: child!,

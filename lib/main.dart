@@ -8,6 +8,7 @@ import 'package:whole_sight/app.dart';
 import 'package:whole_sight/core/utils/logger.dart';
 import 'package:whole_sight/di/dependency_injection.dart';
 import 'package:whole_sight/firebase_options.dart';
+import 'package:whole_sight/services/tracking/nfc_intent_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,9 @@ Future<void> main() async {
 
   // Initialize dependency injection (after env variables are loaded)
   await initDependencies();
+
+  // Initialize NFC Intent Handler
+  await NfcIntentHandler.initialize();
 
   runApp(const WholeSightApp());
 }

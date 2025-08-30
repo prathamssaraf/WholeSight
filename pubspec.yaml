@@ -77,6 +77,9 @@ dependencies:
   csv: ^5.0.2
   table_calendar: ^3.0.9
   share_plus: ^7.2.1
+  
+  # NFC functionality
+  nfc_manager: ^3.5.0
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "D:/wholesight_test/linux"
+    "cmake.sourceDirectory": "D:/wholesight_test/linux",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

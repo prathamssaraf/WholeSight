@@ -6,8 +6,10 @@ import 'package:whole_sight/domain/entities/meal_entity.dart';
 import 'package:whole_sight/domain/entities/user_entity.dart';
 import 'package:whole_sight/data/models/meal.dart'; // Changed to use Meal instead of MealEntity
 import 'package:whole_sight/presentation/pages/food_logging/food_log_page.dart';
+import 'package:whole_sight/presentation/pages/tracking/water_tracking_page.dart';
 import 'package:whole_sight/services/auth/auth_service.dart';
 import 'package:whole_sight/services/nutrition/meal_service.dart';
+import 'package:whole_sight/services/tracking/water_tracking_service.dart';
 import 'package:fl_chart/fl_chart.dart'; // You'll need to add this dependency
 
 class InsightsPage extends StatefulWidget {
@@ -23,6 +25,7 @@ class _InsightsPageState extends State<InsightsPage>
   bool _isLoading = true;
   List<Meal> _recentMeals = []; // Changed to Meal type
   DateTime _selectedDate = DateTime.now(); // Add date selector functionality
+  final WaterTrackingService _waterService = WaterTrackingService();
 
   // Summary data
   int _calorieConsumed = 0;
@@ -98,6 +101,9 @@ class _InsightsPageState extends State<InsightsPage>
 
       // Load the calorie target from the meal service
       await _loadCalorieTarget();
+
+      // Initialize water tracking service
+      await _waterService.initialize(user.id);
 
       // Continue with loading meals and weekly data
       await _loadTodaysMeals();
@@ -198,9 +204,9 @@ class _InsightsPageState extends State<InsightsPage>
           _fiberConsumed = 0; // Set to 0 or calculate if available
           _sugarConsumed = 0; // Set to 0 or calculate if available
 
-          // Assuming water tracking is done elsewhere
-          // For now we'll use a placeholder
-          _waterConsumed = 1.2;
+          // Load water data from water tracking service
+          _waterConsumed = _waterService.totalWaterTodayInLiters;
+          _waterTarget = _waterService.waterTargetInLiters;
         });
       }
     } catch (e) {
@@ -607,12 +613,20 @@ class _InsightsPageState extends State<InsightsPage>
                 ),
                 _buildSummaryItem(
                   label: 'Water',
-                  value: '${_waterConsumed}L',
-                  target: '${_waterTarget}L',
+                  value: '${_waterConsumed.toStringAsFixed(1)}L',
+                  target: '${_waterTarget.toStringAsFixed(1)}L',
                   iconData: Icons.water_drop_outlined,
                   color: AppColors.secondary,
                   progress:
                       _waterTarget > 0 ? _waterConsumed / _waterTarget : 0,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WaterTrackingPage(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -629,11 +643,12 @@ class _InsightsPageState extends State<InsightsPage>
     required IconData iconData,
     required Color color,
     required double progress,
+    VoidCallback? onTap,
   }) {
     // Ensure progress is within bounds
     final boundedProgress = progress.clamp(0.0, 1.0);
 
-    return Column(
+    Widget summaryContent = Column(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -671,6 +686,15 @@ class _InsightsPageState extends State<InsightsPage>
         ),
       ],
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: summaryContent,
+      );
+    }
+
+    return summaryContent;
   }
 
   Widget _buildNutritionBreakdown() {

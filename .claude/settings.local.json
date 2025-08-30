@@ -12,7 +12,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(flutter run:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter:*)",
+      "Bash(java:*)",
+      "Bash(where java)"
     ],
     "deny": []
   }

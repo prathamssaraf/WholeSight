@@ -8,6 +8,9 @@ import 'package:whole_sight/presentation/bloc/auth/auth_state.dart';
 import 'package:whole_sight/presentation/bloc/food_logging/food_logging_bloc.dart';
 import 'package:whole_sight/presentation/pages/auth/onboarding_page.dart';
 import 'package:whole_sight/presentation/pages/dashboard/dashboard_page.dart';
+import 'package:whole_sight/presentation/pages/tracking/water_tracking_page.dart';
+import 'package:whole_sight/presentation/pages/tracking/nfc_setup_page.dart';
+import 'package:whole_sight/presentation/pages/tracking/water_settings_page.dart';
 
 class WholeSightApp extends StatelessWidget {
   const WholeSightApp({super.key});
@@ -47,6 +50,9 @@ class WholeSightApp extends StatelessWidget {
         ),
         // Define your routes here
         routes: {
+          '/water-tracking': (context) => const WaterTrackingPage(),
+          '/nfc-setup': (context) => const NfcSetupPage(),
+          '/water-settings': (context) => const WaterSettingsPage(),
           // '/': (context) => const SplashScreen(),
           // '/onboarding': (context) => const OnboardingPage(),
           // '/login': (context) => const LoginPage(),
